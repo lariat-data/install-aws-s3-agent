@@ -20,7 +20,7 @@ terraform init -reconfigure \
 	      -backend-config="secret_key=$(aws configure get aws_secret_access_key --profile lariat)" \
 	      -backend-config="token=$(aws configure get aws_session_token --profile lariat)"
 
-python3 athena_installer.py
+python3 s3_installer.py
 
 
 if [ -n "$1" ] && [ "$1" = "uninstall" ]; then
