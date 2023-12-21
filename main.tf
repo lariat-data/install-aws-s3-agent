@@ -16,17 +16,17 @@ terraform {
 }
 
 // Create object for agent configuration file in s3
-resource "aws_s3_bucket" "lariat_athena_agent_config_bucket" {
+resource "aws_s3_bucket" "lariat_s3_agent_config_bucket" {
   bucket_prefix = var.s3_agent_config_bucket
   force_destroy = true
 }
 
-resource "aws_s3_object" "lariat_athena_agent_config" {
+resource "aws_s3_object" "lariat_s3_agent_config" {
   bucket = aws_s3_bucket.lariat_s3_agent_config_bucket.bucket
-  key    = "athena_agent.yaml"
-  source = "athena_agent.yaml"
+  key    = "s3_agent.yaml"
+  source = "s3_agent.yaml"
 
-  etag = filemd5("athena_agent.yaml")
+  etag = filemd5("s3_agent.yaml")
 }
 
 

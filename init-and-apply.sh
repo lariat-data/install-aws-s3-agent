@@ -13,7 +13,7 @@ cat lariat_profile.json | jq -r .SessionToken | xargs -I {} aws configure set aw
 
 echo "Initializing Terraform..."
 terraform init -reconfigure \
-              -backend-config="key=${AWS_ACCOUNT_ID}/athena/terraform.tfstate" \
+              -backend-config="key=${AWS_ACCOUNT_ID}/s3/terraform.tfstate" \
               -backend-config="bucket=lariat-customer-installation-tfstate" \
               -backend-config="region=us-east-2" \
 	      -backend-config="access_key=$(aws configure get aws_access_key_id --profile lariat)" \

@@ -30,7 +30,7 @@ def get_target_s3_buckets():
 
 if __name__ == '__main__':
     validate_agent_config()
-    target_buckets = get_target_athena_databases()
+    target_buckets = get_target_s3_buckets()
     print(f"Installing lariat to S3 buckets {target_buckets}")
 
     lariat_api_key = os.environ.get("LARIAT_API_KEY")
