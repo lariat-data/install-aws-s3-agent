@@ -12,8 +12,6 @@ def validate_agent_config():
         agent_config = yaml.load(agent_config_file)
 
     assert "buckets" in agent_config
-    assert "databases" in agent_config
-    assert isinstance(agent_config["databases"], dict)
 
     for bucket in agent_config["buckets"].keys():
         assert isinstance(agent_config["buckets"][bucket], list)
@@ -46,6 +44,8 @@ if __name__ == '__main__':
         "lariat_sink_aws_access_key_id": lariat_sink_aws_access_key_id,
         "lariat_sink_aws_secret_access_key": lariat_sink_aws_secret_access_key,
         "aws_region": aws_region,
+        "s3_bucket": target_buckets[0],
+        "target_s3_buckets": target_buckets,
     }
 
     print("Passing configuration through to terraform")

@@ -18,6 +18,14 @@ variable "aws_region" {
   type = string
 }
 
+variable "s3_bucket" {
+  type = string
+}
+
+variable "target_s3_buckets" {
+  type = list(string)
+}
+
 variable "backfill_interval_cron" {
   type = string
   default = "rate(45 minutes)"
