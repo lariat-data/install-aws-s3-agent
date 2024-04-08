@@ -51,3 +51,10 @@ variable "query_dispatch_interval_cron" {
   default = "rate(5 minutes)"
 }
 
+variable "lariat_event_name" {
+  type = string
+}
+
+variable "lariat_payload_source" {
+  type = string
+}

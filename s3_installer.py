@@ -35,6 +35,9 @@ if __name__ == '__main__':
     lariat_application_key = os.environ.get("LARIAT_APPLICATION_KEY")
     aws_region = os.environ.get("AWS_REGION")
 
+    lariat_event_name = os.environ.get("LARIAT_EVENT_NAME", "sns_s3_trigger")
+    lariat_payload_source= os.environ.get("LARIAT_PAYLOAD_SOURCE", "s3")
+
     lariat_sink_aws_access_key_id = os.getenv("LARIAT_TMP_AWS_ACCESS_KEY_ID")
     lariat_sink_aws_secret_access_key = os.getenv("LARIAT_TMP_AWS_SECRET_ACCESS_KEY")
 
@@ -43,6 +46,8 @@ if __name__ == '__main__':
         "lariat_application_key": lariat_application_key,
         "lariat_sink_aws_access_key_id": lariat_sink_aws_access_key_id,
         "lariat_sink_aws_secret_access_key": lariat_sink_aws_secret_access_key,
+        "lariat_event_name": lariat_event_name,
+        "lariat_payload_source": lariat_payload_source,
         "aws_region": aws_region,
         "s3_bucket": target_buckets[0],
         "target_s3_buckets": target_buckets,
