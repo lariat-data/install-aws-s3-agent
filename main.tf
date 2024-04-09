@@ -17,12 +17,6 @@ terraform {
 
 locals {
     today  = timestamp()
-    lambda_heartbeat_time   = timeadd(local.today, "5m")
-    lambda_heartbeat_minute = formatdate("m", local.lambda_heartbeat_time)
-    lambda_heartbeat_hour = formatdate("h", local.lambda_heartbeat_time)
-    lambda_heartbeat_day = formatdate("D", local.lambda_heartbeat_time)
-    lambda_heartbeat_month = formatdate("M", local.lambda_heartbeat_time)
-    lambda_heartbeat_year = formatdate("YYYY", local.lambda_heartbeat_time)
     lariat_vendor_tag_aws = var.lariat_vendor_tag_aws != "" ? var.lariat_vendor_tag_aws : "lariat-${var.aws_region}"
 }
 
@@ -127,25 +121,6 @@ resource "aws_lambda_function" "lariat_s3_monitoring_lambda" {
     }
   }
 }
-
-resource "aws_cloudwatch_event_rule" "lariat_s3_lambda_trigger_heartbeat" {
-  name_prefix = "lariat-s3-lambda-trigger"
-  schedule_expression ="cron(${local.lambda_heartbeat_minute} ${local.lambda_heartbeat_hour} ${local.lambda_heartbeat_day} ${local.lambda_heartbeat_month} ? ${local.lambda_heartbeat_year})"
-}
-
-resource "aws_cloudwatch_event_target" "lariat_s3_lambda_trigger_heartbeat_target" {
-  rule = aws_cloudwatch_event_rule.lariat_s3_lambda_trigger_heartbeat.name
-  arn = aws_lambda_function.lariat_s3_monitoring_lambda.arn
-}
-
-resource "aws_lambda_permission" "allow_cloudwatch_heartbeat" {
-  statement_id  = "AllowExecutionFromCloudWatchHeartbeat"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lariat_s3_monitoring_lambda.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.lariat_s3_lambda_trigger_heartbeat.arn
-}
-
 
 data "aws_iam_policy_document" "allow_config_access_from_lariat_account" {
   statement {
