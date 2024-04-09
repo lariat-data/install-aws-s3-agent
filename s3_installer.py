@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import subprocess
+import boto3
 
 def validate_agent_config():
     yaml = YAML()
@@ -24,11 +25,40 @@ def get_target_s3_buckets():
     with open("s3_agent.yaml") as agent_config_file:
         agent_config = yaml.load(agent_config_file)
 
-    return list(agent_config["buckets"].keys())
+    buckets = list(agent_config["buckets"].keys())
+    bucket_prefixes = defaultdict(list)
+
+    for bucket in buckets:
+        for config in agent_config["buckets"][bucket]:
+            bucket_prefixes[bucket].append(config["prefix"])
+
+    return bucket_prefixes
 
 if __name__ == '__main__':
     validate_agent_config()
-    target_buckets = get_target_s3_buckets()
+    target_bucket_prefixes = get_target_s3_buckets()
+
+    # get existing event notification state for target s3 buckets
+    s3Client = boto3.client('s3')
+    expected_bucket_owner = os.getenv("AWS_ACCOUNT_ID", None)
+    assert expected_bucket_owner is not None, "Please provide a valid AWS_ACCOUNT_ID"
+
+    new_s3_notifications = []
+    existing_s3_notifications = []
+    for bucket, prefix in target_bucket_prefixes.items():
+        response = s3Client.get_bucket_notification_configuration(
+            Bucket=bucket,
+            ExpectedBucketOwner=expected_bucket_owner
+        )
+
+        if any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
+            print(f"Bucket {bucket} already has notifications configured. Installer will preserve the existing configuration for notifying on prefix {prefix}")
+            existing_s3_notifications.append((bucket, prefix))
+        else:
+            print(f"Bucket {bucket} has no notifications. Installer will set up SNS notifications for prefix {prefix}")
+            new_s3_notifications.append((bucket, prefix))
+
+    target_buckets = list(set([t for t in target_bucket_prefixes.keys()]))
     print(f"Installing lariat to S3 buckets {target_buckets}")
 
     lariat_api_key = os.environ.get("LARIAT_API_KEY")
@@ -51,6 +81,7 @@ if __name__ == '__main__':
         "aws_region": aws_region,
         "s3_bucket": target_buckets[0],
         "target_s3_buckets": target_buckets,
+        "target_s3_bucket_prefixes": target_bucket_prefixes,
     }
 
     print("Passing configuration through to terraform")

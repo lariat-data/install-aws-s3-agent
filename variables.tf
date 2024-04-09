@@ -26,6 +26,10 @@ variable "target_s3_buckets" {
   type = list(string)
 }
 
+variable "target_s3_bucket_prefixes" {
+  type = map(list(string))
+}
+
 variable "backfill_interval_cron" {
   type = string
   default = "rate(45 minutes)"
