@@ -94,7 +94,7 @@ data "aws_iam_policy_document" "lambda-assume-role-policy" {
 
 resource "aws_iam_policy" "lariat_s3_monitoring_policy" {
   name_prefix = "lariat-s3-monitoring-policy"
-  policy = templatefile("iam/lariat-s3-monitoring-policy.json.tftpl", { s3_bucket = var.s3_bucket, s3_agent_config_bucket = aws_s3_bucket.lariat_s3_agent_config_bucket.bucket })
+  policy = templatefile("iam/lariat-s3-monitoring-policy.json.tftpl", { s3_buckets = var.target_s3_buckets, s3_agent_config_bucket = aws_s3_bucket.lariat_s3_agent_config_bucket.bucket })
 }
 
 resource "aws_iam_role" "lariat_s3_monitoring_lambda_role" {

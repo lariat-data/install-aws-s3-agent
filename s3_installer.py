@@ -79,7 +79,6 @@ if __name__ == '__main__':
         "lariat_event_name": lariat_event_name,
         "lariat_payload_source": lariat_payload_source,
         "aws_region": aws_region,
-        "s3_bucket": target_buckets[0],
         "target_s3_buckets": target_buckets,
         "target_s3_bucket_prefixes": target_bucket_prefixes,
     }

@@ -18,10 +18,6 @@ variable "aws_region" {
   type = string
 }
 
-variable "s3_bucket" {
-  type = string
-}
-
 variable "target_s3_buckets" {
   type = list(string)
 }
