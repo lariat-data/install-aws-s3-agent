@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import subprocess
+import re
 import boto3
 
 def validate_agent_config():
@@ -43,20 +44,34 @@ if __name__ == '__main__':
     expected_bucket_owner = os.getenv("AWS_ACCOUNT_ID", None)
     assert expected_bucket_owner is not None, "Please provide a valid AWS_ACCOUNT_ID"
 
-    new_s3_notifications = []
-    existing_s3_notifications = []
-    for bucket, prefix in target_bucket_prefixes.items():
+    new_s3_notifications = {}
+    existing_s3_notifications = {}
+
+    for bucket, prefixes in target_bucket_prefixes.items():
         response = s3Client.get_bucket_notification_configuration(
             Bucket=bucket,
             ExpectedBucketOwner=expected_bucket_owner
         )
-
         if any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
-            print(f"Bucket {bucket} already has notifications configured. Installer will preserve the existing configuration for notifying on prefix {prefix}")
-            existing_s3_notifications.append((bucket, prefix))
+            # Check if any monitored prefixes are configured to notify an SNS Topic
+            if "TopicConfigurations" in response:
+                for config in response['TopicConfigurations']:
+                    matches = {}
+                    if 'Filter' in config:
+                        prefix_rules = [r for r in config['Filter']['Key']['FilterRules'] if r['Name'].lower() == 'prefix']
+                        for rule in prefix_rules:
+                            for p in prefixes:
+                                if re.match(p, rule['Value']):
+                                    matches[p] = config['TopicArn']
+
+                    if matches:
+                        for matched_prefix, topic in matches.items():
+                            print(f"Bucket {bucket} is notifying topic {topic} for prefix {matched_prefix}. Installer will preserve existing configuration")
+
+                            existing_s3_notifications[bucket] = {matched_prefix: topic}
         else:
             print(f"Bucket {bucket} has no notifications. Installer will set up SNS notifications for prefix {prefix}")
-            new_s3_notifications.append((bucket, prefix))
+            new_s3_notifications[bucket] = prefixes
 
     target_buckets = list(set([t for t in target_bucket_prefixes.keys()]))
     print(f"Installing lariat to S3 buckets {target_buckets}")
@@ -80,7 +95,8 @@ if __name__ == '__main__':
         "lariat_payload_source": lariat_payload_source,
         "aws_region": aws_region,
         "target_s3_buckets": target_buckets,
-        "target_s3_bucket_prefixes": target_bucket_prefixes,
+        "target_s3_bucket_prefixes": new_s3_notifications,
+        "existing_s3_bucket_notifications": existing_s3_notifications,
     }
 
     print("Passing configuration through to terraform")

@@ -18,6 +18,15 @@ terraform {
 locals {
     today  = timestamp()
     lariat_vendor_tag_aws = var.lariat_vendor_tag_aws != "" ? var.lariat_vendor_tag_aws : "lariat-${var.aws_region}"
+    flattened_bucket_prefixes = flatten([
+      for bucket, inner_map in var.existing_s3_bucket_notifications : [
+        for prefix, topic in inner_map : {
+          bucket = bucket
+          prefix = prefix
+          topic = topic
+        }
+      ]
+    ])
 }
 
 # Configure default the AWS Provider
@@ -177,6 +186,7 @@ data "aws_iam_policy_document" "lariat_monitoring_sns_iam" {
 }
 
 resource "aws_sns_topic" "lariat_s3_monitoring_events_topic" {
+  count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
   name = "lariat-s3-monitoring-events"
 }
 
@@ -205,10 +215,28 @@ resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
   endpoint = aws_lambda_function.lariat_s3_monitoring_lambda.arn
 }
 
+resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
+
+  topic_arn = each.value.topic
+  protocol = "lambda"
+  endpoint = aws_lambda_function.lariat_s3_monitoring_lambda.arn
+}
+
 resource "aws_lambda_permission" "sns_lambda_invoke_permission" {
   statement_id  = "AllowExecutionFromSNS"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lariat_s3_monitoring_lambda.function_name
   principal     = "sns.amazonaws.com"
   source_arn    = aws_sns_topic.lariat_s3_monitoring_events_topic.arn
+}
+
+resource "aws_lambda_permission" "sns_lambda_invoke_permission" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
+
+  statement_id  = "AllowExecutionFromSNS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lariat_s3_monitoring_lambda.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = each.value.topic
 }
