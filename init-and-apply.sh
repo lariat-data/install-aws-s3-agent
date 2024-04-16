@@ -22,7 +22,6 @@ terraform init -reconfigure \
 
 python3 s3_installer.py
 
-
 if [ -n "$1" ] && [ "$1" = "uninstall" ]; then
     echo "Uninstalling Lariat..."
     terraform destroy -auto-approve

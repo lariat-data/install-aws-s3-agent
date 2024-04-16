@@ -164,6 +164,8 @@ data "aws_s3_bucket" "lariat_monitored_s3_buckets" {
 }
 
 data "aws_iam_policy_document" "lariat_monitoring_sns_iam" {
+  count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
+
   statement {
     effect = "Allow"
 
@@ -173,7 +175,7 @@ data "aws_iam_policy_document" "lariat_monitoring_sns_iam" {
     }
 
     actions   = ["SNS:Publish"]
-    resources = [aws_sns_topic.lariat_s3_monitoring_events_topic.arn]
+    resources = [aws_sns_topic.lariat_s3_monitoring_events_topic[count.index].arn]
 
     condition {
       test     = "ArnLike"
@@ -191,8 +193,10 @@ resource "aws_sns_topic" "lariat_s3_monitoring_events_topic" {
 }
 
 resource "aws_sns_topic_policy" "lariat_s3_monitoring_events_topic_policy" {
-  arn = aws_sns_topic.lariat_s3_monitoring_events_topic.arn
-  policy = data.aws_iam_policy_document.lariat_monitoring_sns_iam.json
+  count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
+
+  arn = aws_sns_topic.lariat_s3_monitoring_events_topic[count.index].arn
+  policy = data.aws_iam_policy_document.lariat_monitoring_sns_iam[count.index].json
 }
 
 resource "aws_s3_bucket_notification" "lariat_s3_sns_notification" {
@@ -202,7 +206,7 @@ resource "aws_s3_bucket_notification" "lariat_s3_sns_notification" {
   dynamic "topic" {
     for_each = toset(each.value)
     content {
-      topic_arn = aws_sns_topic.lariat_s3_monitoring_events_topic.arn
+      topic_arn = aws_sns_topic.lariat_s3_monitoring_events_topic[0].arn
       events    = ["s3:ObjectCreated:*"]
       filter_prefix = topic.value
     }
@@ -210,12 +214,14 @@ resource "aws_s3_bucket_notification" "lariat_s3_sns_notification" {
 }
 
 resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
-  topic_arn = aws_sns_topic.lariat_s3_monitoring_events_topic.arn
+  count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
+
+  topic_arn = aws_sns_topic.lariat_s3_monitoring_events_topic[count.index].arn
   protocol = "lambda"
   endpoint = aws_lambda_function.lariat_s3_monitoring_lambda.arn
 }
 
-resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
+resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription_existing" {
   for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
 
   topic_arn = each.value.topic
@@ -224,14 +230,15 @@ resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
 }
 
 resource "aws_lambda_permission" "sns_lambda_invoke_permission" {
+  count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
   statement_id  = "AllowExecutionFromSNS"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lariat_s3_monitoring_lambda.function_name
   principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.lariat_s3_monitoring_events_topic.arn
+  source_arn    = aws_sns_topic.lariat_s3_monitoring_events_topic[count.index].arn
 }
 
-resource "aws_lambda_permission" "sns_lambda_invoke_permission" {
+resource "aws_lambda_permission" "sns_lambda_invoke_permission_existing" {
   for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
 
   statement_id  = "AllowExecutionFromSNS"
