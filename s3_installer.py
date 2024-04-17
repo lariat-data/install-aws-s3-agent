@@ -53,7 +53,10 @@ if __name__ == '__main__':
             Bucket=bucket,
             ExpectedBucketOwner=expected_bucket_owner
         )
-        if any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
+        notifying_events = response["Events"]
+        is_notifying_on_object_create = [e for e in notifying_events if "s3:ObjectCreated" in e]
+
+        if is_notifying_on_object_create and any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
             # Check if any monitored prefixes are configured to notify an SNS Topic
             if "TopicConfigurations" in response:
                 for config in response['TopicConfigurations']:
@@ -70,7 +73,7 @@ if __name__ == '__main__':
 
                     if matches:
                         for matched_prefix, topic in matches.items():
-                            print(f"Bucket {bucket} is notifying topic {topic} for prefix {matched_prefix}. Installer will preserve existing configuration")
+                            print(f"Bucket {bucket} is notifying topic {topic} for created objects in prefix {matched_prefix}. Installer will preserve existing configuration")
 
                             existing_s3_notifications_sns[bucket] = {matched_prefix: topic}
 
@@ -89,7 +92,7 @@ if __name__ == '__main__':
                         print(f"No prefix or suffix filtering in place for lambda notifications for bucket {bucket}")
                     if matches:
                         for matched_prefix, func in matches.items():
-                            print(f"Bucket {bucket} is notifying lambda {func} for prefix {matched_prefix}. Installer will preserve existing configuration")
+                            print(f"Bucket {bucket} is notifying lambda {func} for created objects in prefix {matched_prefix}. Installer will preserve existing configuration")
 
                             existing_s3_notifications_lambda[bucket] = {matched_prefix: func}
 
@@ -101,10 +104,10 @@ if __name__ == '__main__':
                 if prefix in existing_s3_notifications_sns[bucket].keys():
                     continue
 
-                print(f"Bucket {bucket} has no notifications on monitored prefix {prefix}. Installer will set up SNS notifications")
+                print(f"Bucket {bucket} has no notifications on created objects in monitored prefix {prefix}. Installer will set up SNS notifications")
                 new_s3_notifications[bucket].append(prefix)
         else:
-            print(f"Bucket {bucket} has no notifications. Installer will set up SNS notifications for prefix {prefix}")
+            print(f"Bucket {bucket} has no notifications on created objects. Installer will set up SNS notifications for prefix {prefix}")
             new_s3_notifications[bucket] = prefixes
 
     target_buckets = list(set([t for t in target_bucket_prefixes.keys()]))
