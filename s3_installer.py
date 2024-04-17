@@ -45,7 +45,8 @@ if __name__ == '__main__':
     assert expected_bucket_owner is not None, "Please provide a valid AWS_ACCOUNT_ID"
 
     new_s3_notifications = {}
-    existing_s3_notifications = {}
+    existing_s3_notifications_sns = {}
+    existing_s3_notifications_lambda = {}
 
     for bucket, prefixes in target_bucket_prefixes.items():
         response = s3Client.get_bucket_notification_configuration(
@@ -68,7 +69,23 @@ if __name__ == '__main__':
                         for matched_prefix, topic in matches.items():
                             print(f"Bucket {bucket} is notifying topic {topic} for prefix {matched_prefix}. Installer will preserve existing configuration")
 
-                            existing_s3_notifications[bucket] = {matched_prefix: topic}
+                            existing_s3_notifications_sns[bucket] = {matched_prefix: topic}
+
+            if "LambdaFunctionConfigurations" in response:
+                for config in response['LambdaFunctionConfigurations']:
+                    matches = {}
+                    if 'Filter' in config:
+                        prefix_rules = [r for r in config['Filter']['Key']['FilterRules'] if r['Name'].lower() == 'prefix']
+                        for rule in prefix_rules:
+                            for p in prefixes:
+                                if re.match(p, rule['Value']):
+                                    matches[p] = config['LambdaFunctionArn']
+
+                    if matches:
+                        for matched_prefix, func in matches.items():
+                            print(f"Bucket {bucket} is notifying lambda {func} for prefix {matched_prefix}. Installer will preserve existing configuration")
+
+                            existing_s3_notifications_lambda[bucket] = {matched_prefix: func}
         else:
             print(f"Bucket {bucket} has no notifications. Installer will set up SNS notifications for prefix {prefix}")
             new_s3_notifications[bucket] = prefixes
@@ -96,7 +113,8 @@ if __name__ == '__main__':
         "aws_region": aws_region,
         "target_s3_buckets": target_buckets,
         "target_s3_bucket_prefixes": new_s3_notifications,
-        "existing_s3_bucket_notifications": existing_s3_notifications,
+        "existing_s3_bucket_notifications_sns": existing_s3_notifications_sns,
+        "existing_s3_bucket_notifications_lambda": existing_s3_notifications_lambda,
     }
 
     print("Passing configuration through to terraform")

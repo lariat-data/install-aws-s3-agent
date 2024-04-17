@@ -26,7 +26,11 @@ variable "target_s3_bucket_prefixes" {
   type = map(list(string))
 }
 
-variable "existing_s3_bucket_notifications" {
+variable "existing_s3_bucket_notifications_sns" {
+  type = map(map(string))
+}
+
+variable "existing_s3_bucket_notifications_lambda" {
   type = map(map(string))
 }
 

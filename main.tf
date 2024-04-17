@@ -18,12 +18,22 @@ terraform {
 locals {
     today  = timestamp()
     lariat_vendor_tag_aws = var.lariat_vendor_tag_aws != "" ? var.lariat_vendor_tag_aws : "lariat-${var.aws_region}"
-    flattened_bucket_prefixes = flatten([
-      for bucket, inner_map in var.existing_s3_bucket_notifications : [
+    flattened_bucket_prefixes_sns = flatten([
+      for bucket, inner_map in var.existing_s3_bucket_notifications_sns : [
         for prefix, topic in inner_map : {
           bucket = bucket
           prefix = prefix
           topic = topic
+        }
+      ]
+    ])
+
+    flattened_bucket_prefixes_lambda = flatten([
+      for bucket, inner_map in var.existing_s3_bucket_notifications_lambda : [
+        for prefix, func in inner_map : {
+          bucket = bucket
+          prefix = prefix
+          func = func
         }
       ]
     ])
@@ -187,6 +197,37 @@ data "aws_iam_policy_document" "lariat_monitoring_sns_iam" {
   }
 }
 
+data "aws_lambda_function" "existing_lambda_targets" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_lambda : idx => entry }
+  function_name = each.value.func
+}
+
+data "aws_iam_role" "existing_lambda_roles" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_lambda : idx => entry }
+  name = split("/", data.aws_lambda_function.existing_lambda_targets[each.key].role)[length(split("/", data.aws_lambda_function.existing_lambda_targets[each.key].role)) -1]
+}
+
+resource "aws_iam_policy" "allow_user_lambda_to_invoke_monitoring_policy" {
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "lambda:InvokeFunction",
+        ]
+        Effect   = "Allow"
+        Resource = aws_lambda_function.lariat_s3_monitoring_lambda.arn
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "existing_lambda_roles_policy_attachment" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_lambda : idx => entry }
+  role = data.aws_iam_role.existing_lambda_roles[each.key].id
+  policy_arn = aws_iam_policy.allow_user_lambda_to_invoke_monitoring_policy.arn
+}
+
 resource "aws_sns_topic" "lariat_s3_monitoring_events_topic" {
   count = length(var.target_s3_bucket_prefixes) > 0 ? 1 : 0
   name = "lariat-s3-monitoring-events"
@@ -222,7 +263,7 @@ resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription" {
 }
 
 resource "aws_sns_topic_subscription" "lariat_sns_lambda_subscription_existing" {
-  for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_sns : idx => entry }
 
   topic_arn = each.value.topic
   protocol = "lambda"
@@ -239,11 +280,21 @@ resource "aws_lambda_permission" "sns_lambda_invoke_permission" {
 }
 
 resource "aws_lambda_permission" "sns_lambda_invoke_permission_existing" {
-  for_each = { for idx, entry in local.flattened_bucket_prefixes : idx => entry }
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_sns : idx => entry }
 
   statement_id  = "AllowExecutionFromSNS"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lariat_s3_monitoring_lambda.function_name
   principal     = "sns.amazonaws.com"
   source_arn    = each.value.topic
+}
+
+resource "aws_lambda_function_event_invoke_config" "lambda_destination_config" {
+  for_each = { for idx, entry in local.flattened_bucket_prefixes_lambda : idx => entry }
+  function_name = each.value.func
+  destination_config {
+    on_success {
+      destination = aws_lambda_function.lariat_s3_monitoring_lambda.arn
+    }
+  }
 }
