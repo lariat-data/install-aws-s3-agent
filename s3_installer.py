@@ -53,15 +53,16 @@ if __name__ == '__main__':
             Bucket=bucket,
             ExpectedBucketOwner=expected_bucket_owner
         )
-        notifying_events = response["Events"]
-        is_notifying_on_object_create = [e for e in notifying_events if "s3:ObjectCreated" in e]
 
-        if is_notifying_on_object_create and any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
+        if any([k in response for k in ["TopicConfigurations", "LambdaFunctionConfigurations", "QueueConfigurations", "EventBridgeConfiguration"]]):
             # Check if any monitored prefixes are configured to notify an SNS Topic
             if "TopicConfigurations" in response:
                 for config in response['TopicConfigurations']:
                     matches = {}
-                    if 'Filter' in config:
+                    notifying_events = config["Events"]
+                    is_notifying_on_object_create = [e for e in notifying_events if "s3:ObjectCreated" in e]
+
+                    if is_notifying_on_object_create and 'Filter' in config:
                         prefix_rules = [r for r in config['Filter']['Key']['FilterRules'] if r['Name'].lower() == 'prefix']
                         for rule in prefix_rules:
                             for p in prefixes:
@@ -80,7 +81,10 @@ if __name__ == '__main__':
             if "LambdaFunctionConfigurations" in response:
                 for config in response['LambdaFunctionConfigurations']:
                     matches = {}
-                    if 'Filter' in config:
+                    notifying_events = config["Events"]
+                    is_notifying_on_object_create = [e for e in notifying_events if "s3:ObjectCreated" in e]
+
+                    if is_notifying_on_object_create and 'Filter' in config:
                         prefix_rules = [r for r in config['Filter']['Key']['FilterRules'] if r['Name'].lower() == 'prefix']
                         for rule in prefix_rules:
                             for p in prefixes:
