@@ -128,7 +128,6 @@ resource "aws_lambda_function" "lariat_s3_monitoring_lambda" {
     variables = {
       LARIAT_API_KEY = var.lariat_api_key
       LARIAT_APPLICATION_KEY = var.lariat_application_key
-      LARIAT_EVENT_NAME = var.lariat_event_name
       LARIAT_PAYLOAD_SOURCE = var.lariat_payload_source
       S3_AGENT_CONFIG_PATH = "${aws_s3_bucket.lariat_s3_agent_config_bucket.bucket}/s3_agent.yaml"
       CLOUD_AGENT_CONFIG_PATH = "${aws_s3_bucket.lariat_s3_agent_config_bucket.bucket}/s3_agent.yaml"
