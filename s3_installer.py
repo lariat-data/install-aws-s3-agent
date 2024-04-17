@@ -44,7 +44,7 @@ if __name__ == '__main__':
     expected_bucket_owner = os.getenv("AWS_ACCOUNT_ID", None)
     assert expected_bucket_owner is not None, "Please provide a valid AWS_ACCOUNT_ID"
 
-    new_s3_notifications = {}
+    new_s3_notifications = defaultdict(list)
     existing_s3_notifications_sns = {}
     existing_s3_notifications_lambda = {}
 
@@ -64,6 +64,9 @@ if __name__ == '__main__':
                             for p in prefixes:
                                 if re.match(p, rule['Value']):
                                     matches[p] = config['TopicArn']
+                    else:
+                        # No prefix filtering in place.
+                        print(f"No prefix or suffix filtering in place for SNS notifications for bucket {bucket}")
 
                     if matches:
                         for matched_prefix, topic in matches.items():
@@ -81,11 +84,25 @@ if __name__ == '__main__':
                                 if re.match(p, rule['Value']):
                                     matches[p] = config['LambdaFunctionArn']
 
+                    else:
+                        # No prefix filtering in place.
+                        print(f"No prefix or suffix filtering in place for lambda notifications for bucket {bucket}")
                     if matches:
                         for matched_prefix, func in matches.items():
                             print(f"Bucket {bucket} is notifying lambda {func} for prefix {matched_prefix}. Installer will preserve existing configuration")
 
                             existing_s3_notifications_lambda[bucket] = {matched_prefix: func}
+
+            # check if any prefix mentioned in yaml is not covered by existing notifications, and add them to news
+            for prefix in prefixes:
+                if prefix in existing_s3_notifications_lambda[bucket].keys():
+                    continue
+
+                if prefix in existing_s3_notifications_sns[bucket].keys():
+                    continue
+
+                print(f"Bucket {bucket} has no notifications on monitored prefix {prefix}. Installer will set up SNS notifications")
+                new_s3_notifications[bucket].append(prefix)
         else:
             print(f"Bucket {bucket} has no notifications. Installer will set up SNS notifications for prefix {prefix}")
             new_s3_notifications[bucket] = prefixes
@@ -112,7 +129,7 @@ if __name__ == '__main__':
         "lariat_payload_source": lariat_payload_source,
         "aws_region": aws_region,
         "target_s3_buckets": target_buckets,
-        "target_s3_bucket_prefixes": new_s3_notifications,
+        "target_s3_bucket_prefixes": dict(new_s3_notifications),
         "existing_s3_bucket_notifications_sns": existing_s3_notifications_sns,
         "existing_s3_bucket_notifications_lambda": existing_s3_notifications_lambda,
     }
