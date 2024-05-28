@@ -121,7 +121,7 @@ resource "aws_lambda_function" "lariat_s3_monitoring_lambda" {
   image_uri = "358681817243.dkr.ecr.${var.aws_region}.amazonaws.com/lariat-s3-agent:latest"
   role = aws_iam_role.lariat_s3_monitoring_lambda_role.arn
   package_type = "Image"
-  memory_size = 10240
+  memory_size = 2056
   timeout = 900
 
   environment {
